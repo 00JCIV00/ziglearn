@@ -180,8 +180,18 @@ pub fn main() !void {
         try stdout.print("\nRound {d}:\n", .{game.round});
         try stdout.writeAll("What's your next move? (x,y)\n");
 
-        const user_input: []const u8 = try stdin.readUntilDelimiterAlloc(allocator, '\n', 64);
-		defer allocator.free(user_input);
+        const user_input: []const u8 = stdin.readUntilDelimiterAlloc(allocator, '\n', 64) catch |err| {
+			switch (err) {
+				error.StreamTooLong => {
+					try stderr.writeAll("Dude... why?\n");
+					_ = try stdin.skipUntilDelimiterOrEof('\n');
+					try stderr.writeAll("Just...... why?!\n");
+				},
+				else => try handleGameError("???", err),
+			}
+			continue :gameLoop;
+		};
+        defer allocator.free(user_input);
         const y_idx = switch (user_input.len) {
             2, 3 => user_input.len - 1,
             else => {
@@ -198,14 +208,13 @@ pub fn main() !void {
             continue :gameLoop;
         };
 
-		if (input_x <= 3 and input_y <= 3) {
-			game.player_x = @truncate(u2, input_x);
-			game.player_y = @truncate(u2, input_y);
-		}
-		else {
-			try handleGameError(user_input, GameError.PositionInvalid);
-			continue :gameLoop;
-		}
+        if (input_x <= 3 and input_y <= 3) {
+            game.player_x = @truncate(u2, input_x);
+            game.player_y = @truncate(u2, input_y);
+        } else {
+            try handleGameError(user_input, GameError.PositionInvalid);
+            continue :gameLoop;
+        }
 
         game.update() catch |err| try handleGameError(user_input, err);
     }

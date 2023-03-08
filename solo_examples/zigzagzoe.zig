@@ -36,10 +36,11 @@ const Game = struct {
     ///Update the current game state.
     fn update(self: *Game) !void {
         try self.setTile(self.player_x, self.player_y, 1);
+		if (try self.checkGameOver()) return;
         self.cpu_attempts = 0;
         try self.cpuTurn();
         try self.printBoard();
-        try self.checkGameOver();
+        _ = try self.checkGameOver();
         self.round += 1;
     }
 
@@ -91,7 +92,7 @@ const Game = struct {
         } else break :matchFound true;
     }
     ///Check for Game Over.
-    fn checkGameOver(self: *Game) !void {
+    fn checkGameOver(self: *Game) !bool {
 
         // Check if either player has 3 in a row
         const brd: *[3][3]u2 = &self.board;
@@ -110,10 +111,6 @@ const Game = struct {
                 break :winnerFound true;
             }
         } else break :winnerFound false;
-        if (found_winner) {
-            self.is_running = false;
-            return;
-        }
 
         // Check if the board is full
         var board_full: bool =
@@ -123,7 +120,15 @@ const Game = struct {
                 if (col == 0) break :boardFull false;
             }
         } else break :boardFull true;
-        if (board_full) self.is_running = false;
+		
+		const gameOver = found_winner or board_full;
+
+        if (gameOver) {
+			self.is_running = false;
+			try stdout.writeAll("\n\nGame Over!\n");
+			try self.printBoard();
+		}
+		return gameOver;
     }
 };
 
@@ -219,7 +224,7 @@ pub fn main() !void {
         game.update() catch |err| try handleGameError(user_input, err);
     }
     try stdout.print("\nThe winner is {s}\n", .{game.winner});
-    try stdout.writeAll("Play again? (y/n)\n");
+    try stdout.writeAll("\nPlay again? (y/n)\n");
     const again: []u8 = try stdin.readUntilDelimiterAlloc(allocator, '\n', 64);
     if (again[0] == 'y') {
         try stdout.writeAll("\n\nHere we go again!\n");

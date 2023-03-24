@@ -1,4 +1,4 @@
-//! A look at how differet Types work in Zig.
+//! a look at how differet Types work in Zig.
 
 const std = @import("std");
 const stdout = std.io.getStdOut().writer();
@@ -59,29 +59,25 @@ const UnionDemo = union(enum) {
 		prefix: []const u8 = "-",
 		depth: u8 = 0,
 		
-		fn getPrefix(self: *const WriteInfoConfig) ![]const u8 {
+		fn getPrefix(self: *const WriteInfoConfig, alloc: *std.mem.Allocator) ![]const u8 {
 			return if (self.depth == 0) "" else newPrefix: {
 				var new_prefix: []u8 = "";
-				var np_buf_ary: [255]u8 = undefined;
-				const np_buf = np_buf_ary[0..];
 				for (0..(self.depth)) |_| 
-					new_prefix = try std.fmt.bufPrint(np_buf, "{s}{s}", .{new_prefix, self.prefix})
+					new_prefix = try std.fmt.allocPrint(alloc.*, "{s}{s}", .{new_prefix, self.prefix})
 				else break :newPrefix new_prefix;
 				
 			};
 		}
 	};
 	/// Pull Name, Type, and Size info from a Union Member (Packed Struct) and its Fields.
-	fn writeInfo(union_if: *UnionDemo, writer: anytype, info_config: WriteInfoConfig) !void {
+	fn writeInfo(union_if: *UnionDemo, alloc: *std.mem.Allocator, writer: anytype, info_config: WriteInfoConfig) !void {
 		var info = info_config;
-		std.debug.print("{}\n{s}\n", .{info, try info.getPrefix()});
-		info.depth += 1;
 		switch (union_if.*) {
 			inline else => |*self| {
 				// Use @TypeOf(obj) builtin to return the 'type' of any object.
 				const self_type = @TypeOf(self.*);
 				// Use @typeName(type), @sizeOf(type), or @bitSizeOf(type) for relevant type data.
-				try writer.print("{s} Struct = Type: {s}, Size: {d}B\n", .{try info.getPrefix(), @typeName(self_type), @sizeOf(self_type)});
+				try writer.print("{s} Struct = Type: {s}, Size: {d}B\n", .{try info.getPrefix(alloc), @typeName(self_type), @sizeOf(self_type)});
 				// Use std.meta.fields(type) to iterate over the fields of a struct.
 				//inline for(std.meta.fields(self_type)) |field|
 				//	try writer.print("- Field = Name: {s}, Type: {s}, Size: {d}b\n", .{field.name, @typeName(field.type), @bitSizeOf(field.type)});
@@ -91,7 +87,7 @@ const UnionDemo = union(enum) {
 				// Use @typeInfo(type).Struct.fields to iterate over the fields of a struct.
 				info.depth += 1;	
 				inline for(@typeInfo(self_type).Struct.fields) |field| {
-					try writer.print("{s} Field = Name: {s}, Type: {s}, Size: {d}b, Value: {}\n", .{try info.getPrefix(), field.name, @typeName(field.type), @bitSizeOf(field.type), @field(self.*, field.name)});
+					try writer.print("{s} Field = Name: {s}, Type: {s}, Size: {d}b, Value: {}\n", .{try info.getPrefix(alloc), field.name, @typeName(field.type), @bitSizeOf(field.type), @field(self.*, field.name)});
 				}
 			}
 		}
@@ -101,15 +97,14 @@ const UnionDemo = union(enum) {
 pub fn main() !void {
 	var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
-    const allocator = arena.allocator();
-	_ = allocator;
+    var allocator = arena.allocator();
 
 	var demo_ps = UnionDemo { .pd1 = .{} };
 	var demo_ps2 = UnionDemo { .pd2 = .{} };
 	try stdout.writeAll("PackedDemo:\n");
-	try demo_ps.writeInfo(&stdout, .{.depth = 1});
+	try demo_ps.writeInfo(&allocator, &stdout, .{.depth = 1});
 	try stdout.writeAll("PackedDemo2:\n");
-	try demo_ps2.writeInfo(&stdout, .{});
+	try demo_ps2.writeInfo(&allocator, &stdout, .{});
 	
 	// Print the full contents of a struct. (Can this be formatted somehow?)
 	//try stdout.print("PackedDemo Struct:\n{}\n", .{demo_ps});

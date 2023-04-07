@@ -1,0 +1,7 @@
+.{
+	.l2_header = "ETH_HEADER",
+	.l3_header = "IP HEADER",
+	.l4_header = "UDP HEADER",
+	.data = "Hello World",
+	.l2_footer = "ETH FOOTER",
+}

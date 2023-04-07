@@ -54,69 +54,69 @@ const PackedDemo2 = packed struct {
             nested_bool2: bool = true,
             nested_u30: u30 = 30,
 
-			pub usingnamespace implWriteable(@This());
+            pub usingnamespace implWriteable(@This());
         };
 		
-		pub usingnamespace implWriteable(@This());
+            pub usingnamespace implWriteable(@This());
         //pub usingnamespace implNamespaceMethod(@This());
     };
 
-	pub usingnamespace implWriteable(@This());
+    pub usingnamespace implWriteable(@This());
     pub usingnamespace implNamespaceMethod(@This());
 };
 
 
 /// An implementable struct that provides a function to recursively write the information of all fields within a struct
 fn implWriteable(comptime T: type) type {
-	if (@typeInfo(T) != .Struct) { 
-		var buf_ary: [512]u8 = undefined;
-		const buf_slice = buf_ary[0..];
-		const err_str = std.fmt.bufPrint(buf_slice, "The provided type '{s}' cannot implement Writeable", .{ @typeName(T) }) catch @compileError("There was an error while trying to report the previous error.");
-		@compileError(err_str);
-	}
+    if (@typeInfo(T) != .Struct) { 
+	var buf_ary: [512]u8 = undefined;
+	const buf_slice = buf_ary[0..];
+	const err_str = std.fmt.bufPrint(buf_slice, "The provided type '{s}' cannot implement Writeable", .{ @typeName(T) }) catch @compileError("There was an error while trying to report the previous error.");
+	@compileError(err_str);
+    }
 
-	return struct {
-		/// Use a configuration struct in place of default paramters.
-		const WriteInfoConfig = struct {
-			prefix: []const u8 = "-",
-			depth: u8 = 0,
+    return struct {
+	/// Use a configuration struct in place of default paramters.
+	const WriteInfoConfig = struct {
+	    prefix: []const u8 = "-",
+	    depth: u8 = 0,
 
-			fn getPrefix(self: *const WriteInfoConfig, alloc: std.mem.Allocator) ![]const u8 {
-				return if (self.depth == 0) "" else newPrefix: {
-					var new_prefix: []u8 = "";
-					for (0..(self.depth)) |_| new_prefix = try std.fmt.allocPrint(alloc, "{s}{s}", .{ new_prefix, self.prefix })
-					else break :newPrefix new_prefix;
-				};
-			}
+	    fn getPrefix(self: *const WriteInfoConfig, alloc: std.mem.Allocator) ![]const u8 {
+		return if (self.depth == 0) "" else newPrefix: {
+		    var new_prefix: []u8 = "";
+		    for (0..(self.depth)) |_| new_prefix = try std.fmt.allocPrint(alloc, "{s}{s}", .{ new_prefix, self.prefix })
+		    else break :newPrefix new_prefix;
 		};
-
-		/// Pull Name, Type, and Size info from a Struct and its Fields.
-		pub fn writeInfo(self: *T, alloc: std.mem.Allocator, writer: anytype, info_config: WriteInfoConfig) !void {
-			var info = info_config;
-			const fields = std.meta.fields(T);
-
-			try writer.print("{s} Struct = Type: {s}, Size: {d}B, # Fields: {d}, Binary: {b}\n", .{
-				try info.getPrefix(alloc),
-				@typeName(T),
-				@sizeOf(T),
-				fields.len,
-				@bitCast(std.meta.Int(.unsigned, @bitSizeOf(T)), self.*),
-			});
-
-			info.depth += 1;
-			inline for (fields) |field| {
-				const field_self = @field(self.*, field.name);
-				if (@typeInfo(field.type) == .Struct) try @constCast(&field_self).writeInfo(alloc, writer, .{ .prefix = info.prefix, .depth = info.depth }) 
-				else try writer.print("{s} Field = Name: {s}, Type: {s}, Size: {d}b, Value: {any}\n", .{ 
-					try info.getPrefix(alloc), 
-					field.name, 
-					@typeName(field.type), 
-					@bitSizeOf(field.type), 
-					field_self 
-				});
-			}
-		}
+	    }
 	};
+
+	/// Pull Name, Type, and Size info from a Struct and its Fields.
+	pub fn writeInfo(self: *T, alloc: std.mem.Allocator, writer: anytype, info_config: WriteInfoConfig) !void {
+	    var info = info_config;
+	    const fields = std.meta.fields(T);
+
+	    try writer.print("{s} Struct = Type: {s}, Size: {d}B, # Fields: {d}, Binary: {b}\n", .{
+		try info.getPrefix(alloc),
+		@typeName(T),
+		@sizeOf(T),
+		fields.len,
+		@bitCast(std.meta.Int(.unsigned, @bitSizeOf(T)), self.*),
+	    });
+
+	    info.depth += 1;
+	    inline for (fields) |field| {
+		const field_self = @field(self.*, field.name);
+		if (@typeInfo(field.type) == .Struct) try @constCast(&field_self).writeInfo(alloc, writer, .{ .prefix = info.prefix, .depth = info.depth }) 
+		else try writer.print("{s} Field = Name: {s}, Type: {s}, Size: {d}b, Value: {any}\n", .{ 
+		    try info.getPrefix(alloc), 
+		    field.name, 
+		    @typeName(field.type), 
+		    @bitSizeOf(field.type), 
+		    field_self 
+		});
+	    }
+	}
+    };
 }
 
 /// Implement Namespace Method (w/ type switch)
